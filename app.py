@@ -210,6 +210,7 @@ if __name__ == "__main__":
     scheduler.add_job(
         func=run_collection,
         trigger="cron",
+        day_of_week="mon-fri",
         hour=SCHEDULE_HOUR,
         minute=SCHEDULE_MINUTE,
         id="daily_etf_collection",
