@@ -1,0 +1,67 @@
+/* Active ETF Analysis 커스텀 스타일 */
+
+.table-buy th {
+    background-color: rgba(25, 135, 84, 0.1);
+}
+
+.table-sell th {
+    background-color: rgba(220, 53, 69, 0.1);
+}
+
+.badge-etf {
+    font-size: 0.7rem;
+    margin: 1px;
+}
+
+.card-header-buy {
+    background-color: rgba(25, 135, 84, 0.1);
+    border-bottom-color: rgba(25, 135, 84, 0.2);
+}
+
+.card-header-sell {
+    background-color: rgba(220, 53, 69, 0.1);
+    border-bottom-color: rgba(220, 53, 69, 0.2);
+}
+
+.card-header-info {
+    background-color: rgba(13, 110, 253, 0.1);
+    border-bottom-color: rgba(13, 110, 253, 0.2);
+}
+
+.period-btn.active {
+    font-weight: bold;
+}
+
+.spinner-inline {
+    width: 1rem;
+    height: 1rem;
+    border-width: 0.15em;
+}
+
+.etf-name-badge {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+    display: inline-block;
+}
+
+/* 테이블 숫자 우측 정렬 */
+.text-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* 스크롤 가능한 ETF 목록 */
+.etf-list-scroll {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+/* 반응형 테이블 */
+@media (max-width: 768px) {
+    .table td, .table th {
+        font-size: 0.85rem;
+        padding: 0.4rem;
+    }
+}

@@ -1,0 +1,302 @@
+{% extends "base.html" %}
+
+{% block title %}대시보드 - Active ETF Analysis{% endblock %}
+
+{% block content %}
+<!-- 상단: 기간별 매수/매도 Top N -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <strong>기간 선택:</strong>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-primary btn-sm period-btn active" data-days="3">3일</button>
+                <button type="button" class="btn btn-outline-primary btn-sm period-btn" data-days="5">5일</button>
+                <button type="button" class="btn btn-outline-primary btn-sm period-btn" data-days="10">10일</button>
+            </div>
+            <span class="text-muted small ms-2" id="periodInfo"></span>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <!-- 매수 증가 Top N -->
+    <div class="col-lg-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header card-header-buy d-flex justify-content-between align-items-center">
+                <span class="fw-bold text-success">매수 증가 Top N</span>
+                <span id="buyLoading" class="spinner-border spinner-inline text-success d-none" role="status"></span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover table-striped mb-0">
+                        <thead class="table-buy">
+                            <tr>
+                                <th class="text-center" style="width:40px">#</th>
+                                <th>종목</th>
+                                <th class="text-num">ETF수</th>
+                                <th class="text-num">증가주식수</th>
+                                <th class="text-num">비중변화(%p)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="buyTableBody">
+                            <tr><td colspan="5" class="text-center text-muted py-3">로딩 중...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 매도 증가(청산) Top N -->
+    <div class="col-lg-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header card-header-sell d-flex justify-content-between align-items-center">
+                <span class="fw-bold text-danger">매도 증가(청산) Top N</span>
+                <span id="sellLoading" class="spinner-border spinner-inline text-danger d-none" role="status"></span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover table-striped mb-0">
+                        <thead class="table-sell">
+                            <tr>
+                                <th class="text-center" style="width:40px">#</th>
+                                <th>종목</th>
+                                <th class="text-num">ETF수</th>
+                                <th class="text-num">감소주식수</th>
+                                <th class="text-num">이전비중합(%)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sellTableBody">
+                            <tr><td colspan="5" class="text-center text-muted py-3">로딩 중...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 하단: 섹터별 ETF 보유종목 -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <strong>섹터 탭:</strong>
+                    <div class="d-flex flex-wrap gap-1">
+                        {% for sector in sector_order %}
+                        <button type="button"
+                                class="btn btn-sm sector-btn {{ 'btn-dark' if loop.first else 'btn-outline-secondary' }}"
+                                data-sector="{{ sector }}"
+                                onclick="loadSector('{{ sector }}')">
+                            {{ sector }} ({{ sector_counts[sector] }})
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="sectorHoldingsContainer">
+                    <div class="text-center text-muted py-4">섹터를 선택하면 해당 ETF별 보유종목이 표시됩니다.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    let currentDays = 3;
+
+    // 기간 선택 버튼
+    document.querySelectorAll('.period-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            currentDays = parseInt(this.dataset.days);
+            loadTopData();
+        });
+    });
+
+    function loadTopData() {
+        loadBuyTop();
+        loadSellTop();
+    }
+
+    function loadBuyTop() {
+        const loading = document.getElementById('buyLoading');
+        const tbody = document.getElementById('buyTableBody');
+        loading.classList.remove('d-none');
+
+        fetch(`/api/top-buy?days=${currentDays}&top_n=20`)
+            .then(r => r.json())
+            .then(data => {
+                loading.classList.add('d-none');
+                if (!data.length) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">데이터가 없습니다.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = data.map((item, i) => `
+                    <tr>
+                        <td class="text-center">${i + 1}</td>
+                        <td class="fw-semibold">${item.stock_name}</td>
+                        <td class="text-num">${item.etf_count}</td>
+                        <td class="text-num text-success">+${item.total_increase.toLocaleString()}</td>
+                        <td class="text-num ${item.weight_change >= 0 ? 'text-success' : 'text-danger'}">
+                            ${item.weight_change >= 0 ? '+' : ''}${item.weight_change.toFixed(2)}
+                        </td>
+                    </tr>
+                `).join('');
+            })
+            .catch(() => {
+                loading.classList.add('d-none');
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-3">데이터 로딩 실패</td></tr>';
+            });
+    }
+
+    function loadSellTop() {
+        const loading = document.getElementById('sellLoading');
+        const tbody = document.getElementById('sellTableBody');
+        loading.classList.remove('d-none');
+
+        fetch(`/api/top-sell?days=${currentDays}&top_n=20`)
+            .then(r => r.json())
+            .then(data => {
+                loading.classList.add('d-none');
+                if (!data.length) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">데이터가 없습니다.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = data.map((item, i) => `
+                    <tr>
+                        <td class="text-center">${i + 1}</td>
+                        <td class="fw-semibold">${item.stock_name}</td>
+                        <td class="text-num">${item.etf_count}</td>
+                        <td class="text-num text-danger">-${item.total_decrease.toLocaleString()}</td>
+                        <td class="text-num">${item.prev_weight.toFixed(2)}</td>
+                    </tr>
+                `).join('');
+            })
+            .catch(() => {
+                loading.classList.add('d-none');
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-3">데이터 로딩 실패</td></tr>';
+            });
+    }
+
+    function loadSector(sector) {
+        // 탭 활성화
+        document.querySelectorAll('.sector-btn').forEach(b => {
+            b.classList.remove('btn-dark');
+            b.classList.add('btn-outline-secondary');
+        });
+        const activeBtn = document.querySelector(`.sector-btn[data-sector="${sector}"]`);
+        if (activeBtn) {
+            activeBtn.classList.remove('btn-outline-secondary');
+            activeBtn.classList.add('btn-dark');
+        }
+
+        const container = document.getElementById('sectorHoldingsContainer');
+        container.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm" role="status"></div> 로딩 중...</div>';
+
+        fetch(`/api/holdings-by-sector?sector=${encodeURIComponent(sector)}`)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.length) {
+                    container.innerHTML = '<div class="text-center text-muted py-4">데이터가 없습니다.</div>';
+                    return;
+                }
+
+                // 종목별 중복수·비중 집계
+                const stockMap = {};
+                data.forEach(etf => {
+                    etf.holdings.forEach(h => {
+                        const name = h.stock_name;
+                        if (!stockMap[name]) {
+                            stockMap[name] = { stock_name: name, etf_count: 0, total_weight: 0 };
+                        }
+                        stockMap[name].etf_count += 1;
+                        stockMap[name].total_weight += (h.weight || 0);
+                    });
+                });
+                const top5 = Object.values(stockMap)
+                    .sort((a, b) => b.etf_count - a.etf_count || b.total_weight - a.total_weight)
+                    .slice(0, 5);
+
+                // Top 5 테이블
+                let html = `
+                <div class="mb-3">
+                    <table class="table table-sm table-bordered mb-0" style="max-width:600px;">
+                        <thead><tr>
+                            <th class="text-center" style="width:30px">#</th>
+                            <th>종목명</th>
+                            <th class="text-num">중복 ETF수</th>
+                            <th class="text-num">비중합(%)</th>
+                        </tr></thead>
+                        <tbody>
+                        ${top5.map((s, i) => `
+                            <tr>
+                                <td class="text-center">${i + 1}</td>
+                                <td class="fw-semibold">${s.stock_name}</td>
+                                <td class="text-num"><span class="badge bg-primary">${s.etf_count}</span></td>
+                                <td class="text-num">${s.total_weight.toFixed(2)}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>
+                </div>`;
+
+                html += '<div class="row">';
+                data.forEach(etf => {
+                    html += `
+                    <div class="col-xl-4 col-lg-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-header py-2 d-flex justify-content-between align-items-center">
+                                <span class="fw-bold small">${etf.etf_name}</span>
+                                <span class="badge bg-secondary">${etf.holdings.length}종목</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive" style="max-height:320px; overflow-y:auto;">
+                                    <table class="table table-sm table-hover table-striped mb-0">
+                                        <thead class="sticky-top bg-body">
+                                            <tr>
+                                                <th class="text-center" style="width:30px">#</th>
+                                                <th>종목</th>
+                                                <th class="text-num">주식수</th>
+                                                <th class="text-num">비중(%)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>`;
+                    if (etf.holdings.length === 0) {
+                        html += '<tr><td colspan="4" class="text-center text-muted py-2">데이터 없음</td></tr>';
+                    } else {
+                        etf.holdings.forEach((h, i) => {
+                            html += `
+                                            <tr>
+                                                <td class="text-center">${i + 1}</td>
+                                                <td>${h.stock_name}</td>
+                                                <td class="text-num">${(h.stock_count || 0).toLocaleString()}</td>
+                                                <td class="text-num">${(h.weight || 0).toFixed(2)}</td>
+                                            </tr>`;
+                        });
+                    }
+                    html += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+                });
+                html += '</div>';
+                container.innerHTML = html;
+            })
+            .catch(() => {
+                container.innerHTML = '<div class="text-center text-danger py-4">데이터 로딩 실패</div>';
+            });
+    }
+
+    // 초기 로드
+    loadTopData();
+    loadSector('전체');
+</script>
+{% endblock %}
